@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MetroMate - Desktop Stem Uploader</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http://localhost:*; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- 1. TOP BAR -->
+      <header class="top-bar">
+        <div class="brand">
+          <div class="brand-badge-logo">
+            <span class="brand-part-1">Metro</span><span class="brand-part-2">Mate</span>
+          </div>
+          <span class="brand-tag">DESKTOP UPLOADER</span>
+        </div>
+
+        <div class="header-right">
+          <!-- User Profile / Login Button in Header -->
+          <div id="user-auth-section" class="user-auth-section">
+            <button id="open-login-btn" class="btn-auth-login">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <span>Log In</span>
+            </button>
+
+            <div id="user-profile-widget" class="user-profile-widget hidden">
+              <div class="user-avatar-circle" id="user-avatar-initial">A</div>
+              <div class="user-profile-info">
+                <span class="user-display-name" id="user-display-name">Artist</span>
+                <span class="user-account-badge">Logged In</span>
+              </div>
+              <button id="logout-btn" class="btn-logout" title="Log out from MetroMate">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="status-indicator" title="System Status">
+            <span class="status-dot"></span>
+            <span class="status-text">Ready</span>
+          </div>
+
+          <button id="settings-btn" class="icon-btn" aria-label="Settings" title="Server Settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- MAIN CONTAINER -->
+      <main class="main-content">
+        <!-- WIZARD STEPPER -->
+        <nav id="wizard-stepper" class="wizard-stepper" aria-label="Upload Progress Steps">
+          <div class="step-indicator active" data-step="1">
+            <span class="step-num">1</span>
+            <span class="step-label">Select Audio Stems</span>
+          </div>
+          <div class="stepper-line"></div>
+          <div class="step-indicator" data-step="2">
+            <span class="step-num">2</span>
+            <span class="step-label">Choose Project</span>
+          </div>
+          <div class="stepper-line"></div>
+          <div class="step-indicator" data-step="3">
+            <span class="step-num">3</span>
+            <span class="step-label">Upload to Database</span>
+          </div>
+        </nav>
+
+        <!-- SCREEN 1A: HERO & DROPZONE (Initial State) -->
+        <section id="upload-card" class="upload-card">
+          <div class="hero-header-block">
+            <h1 class="hero-title">Upload Stems to Your Collaboration</h1>
+            <p class="hero-subtitle">
+              Export your audio stems from FL Studio, analyze tempo & key automatically, and upload them directly into your MetroMate project.
+            </p>
+          </div>
+
+          <div id="drag-drop-zone" class="drag-drop-zone" tabindex="0" role="button" aria-label="Drop audio files here or click to browse">
+            <div class="upload-icon-wrapper">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+            </div>
+            <p class="drop-primary-text">Drag & drop your FL Studio stems here</p>
+            <p class="drop-secondary-text">or click to browse audio files (.wav, .mp3, .flac, .aiff)</p>
+            <button id="start-upload-btn" class="btn-primary" style="margin-top: 1rem; pointer-events: none;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path>
+                <path d="M12 12v9"></path>
+                <path d="m16 16-4-4-4 4"></path>
+              </svg>
+              <span>Browse Audio Files</span>
+            </button>
+          </div>
+
+          <div class="supported-formats">
+            <span class="formats-label">Supported Stem Formats</span>
+            <div class="format-badges">
+              <span class="format-badge">WAV (24/32-bit)</span>
+              <span class="format-badge">MP3</span>
+              <span class="format-badge">FLAC</span>
+              <span class="format-badge">AIFF</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- SCREEN 1B: SELECTED STEMS LIST (Review & Edit Metadata) -->
+        <section id="selected-stems-card" class="selected-stems-card hidden">
+          <div class="card-header-with-actions">
+            <div>
+              <h2 class="card-title">Selected Audio Stems</h2>
+              <p class="card-description">Review BPM, Key, and metadata for each stem before selecting a project.</p>
+            </div>
+            <div class="header-badge-group">
+              <span id="stems-count-badge" class="count-badge">0 stems</span>
+              <button id="clear-all-btn" class="btn-text-danger" title="Clear all stems">Clear All</button>
+            </div>
+          </div>
+
+          <div id="stems-list" class="stems-list">
+            <!-- Stems rendered dynamically via renderer.js -->
+          </div>
+
+          <div class="stems-card-actions">
+            <button id="add-more-stems-btn" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Add More Stems</span>
+            </button>
+            <button id="continue-to-projects-btn" class="btn-primary">
+              <span>Next: Choose Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
+          </div>
+        </section>
+
+        <!-- SCREEN 2: PROJECT SELECTION -->
+        <section id="project-selection-card" class="project-selection-card hidden">
+          <div class="card-header-with-actions">
+            <div>
+              <h2 class="card-title">Select MetroMate Project</h2>
+              <p class="card-description">Choose which collaboration project to upload your stems into.</p>
+            </div>
+            <div class="header-badge-group">
+              <span id="connection-status-badge" class="connection-badge online">
+                <span class="status-dot"></span>
+                <span id="connection-status-text">Backend Connected</span>
+              </span>
+              <button id="refresh-projects-btn" class="icon-btn" title="Refresh Projects">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Search Filter -->
+          <div class="project-search-bar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="project-search-input" placeholder="Search your collaboration projects..." />
+          </div>
+
+          <!-- Project Cards Container -->
+          <div id="projects-list" class="projects-list">
+            <!-- Populated via renderer.js -->
+          </div>
+
+          <!-- Actions -->
+          <div class="stems-card-actions">
+            <button id="back-to-stems-btn" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Back to Stems</span>
+            </button>
+            <button id="start-upload-to-project-btn" class="btn-primary" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path>
+                <path d="M12 12v9"></path>
+                <path d="m16 16-4-4-4 4"></path>
+              </svg>
+              <span>Upload Stems to Project</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- SCREEN 3: UPLOADING PROGRESS -->
+        <section id="upload-progress-card" class="upload-progress-card hidden">
+          <div class="card-header">
+            <h2 class="card-title">Uploading Stems to MetroMate Database</h2>
+            <p id="upload-status-subtitle" class="card-description">Streaming audio files and saving metadata to the database...</p>
+          </div>
+
+          <div class="overall-progress-container">
+            <div class="progress-info-row">
+              <span id="overall-progress-text" class="progress-info-text">Uploading 0 of 0 stems</span>
+              <span id="overall-progress-percent" class="progress-info-percent">0%</span>
+            </div>
+            <div class="progress-track-large">
+              <div id="overall-progress-fill" class="progress-fill-large"></div>
+            </div>
+          </div>
+
+          <div id="uploading-stems-list" class="uploading-stems-list">
+            <!-- Populated via renderer.js -->
+          </div>
+        </section>
+
+        <!-- SCREEN 4: UPLOAD SUCCESS -->
+        <section id="upload-success-card" class="upload-success-card hidden">
+          <div class="success-icon-wrapper">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccff00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <h2 class="card-title text-center">Stems Successfully Uploaded!</h2>
+          <p id="success-summary-text" class="card-description text-center">
+            All stems have been saved to your project in the MetroMate database.
+          </p>
+
+          <div class="success-actions">
+            <button id="upload-more-btn" class="btn-primary btn-large">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Upload More Stems</span>
+            </button>
+            <button id="open-metromate-web-btn" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              <span>View in Web Browser</span>
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <!-- LOGIN MODAL -->
+      <div id="login-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+          <div class="modal-header">
+            <div class="brand-badge-logo small">
+              <span class="brand-part-1">Metro</span><span class="brand-part-2">Mate</span>
+            </div>
+            <button id="close-login-modal-btn" class="icon-btn" aria-label="Close modal">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <form id="login-form" class="modal-body">
+            <h3 class="modal-title" style="margin-bottom: 0.25rem;">Sign In to MetroMate</h3>
+            <p class="card-description" style="margin-bottom: 1.25rem;">Log in to access your collaboration projects and upload stems.</p>
+
+            <div class="stem-field-group">
+              <label class="stem-field-label" for="login-email">Email Address</label>
+              <input type="email" id="login-email" class="stem-input" placeholder="artist@metromate.app" required />
+            </div>
+
+            <div class="stem-field-group" style="margin-top: 1rem;">
+              <label class="stem-field-label" for="login-password">Password</label>
+              <input type="password" id="login-password" class="stem-input" placeholder="••••••••" required />
+            </div>
+
+            <div id="login-error-msg" class="test-status error hidden" style="margin-top: 1rem;"></div>
+
+            <button type="submit" id="submit-login-btn" class="btn-primary btn-large" style="margin-top: 1.5rem; width: 100%;">
+              <span>Sign In to MetroMate</span>
+            </button>
+          </form>
+          <div class="modal-footer" style="justify-content: center;">
+            <span class="field-hint">Desktop session will be preserved on this computer.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS MODAL -->
+      <div id="settings-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3 class="modal-title">MetroMate Server Settings</h3>
+            <button id="close-settings-modal-btn" class="icon-btn" aria-label="Close modal">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="stem-field-group">
+              <label class="stem-field-label" for="settings-api-url">API Server URL</label>
+              <input type="text" id="settings-api-url" class="stem-input" placeholder="http://localhost:5050" value="http://localhost:5050" />
+              <span class="field-hint">The URL of your MetroMate backend API server.</span>
+            </div>
+
+            <div class="stem-field-group" style="margin-top: 1rem;">
+              <label class="stem-field-label" for="settings-auth-token">API Bearer Token (Optional)</label>
+              <input type="password" id="settings-auth-token" class="stem-input" placeholder="Enter custom JWT token or leave blank" />
+              <span class="field-hint">Auto-filled when you log in through the app.</span>
+            </div>
+
+            <div id="test-connection-status" class="test-status hidden"></div>
+          </div>
+          <div class="modal-footer">
+            <button id="test-connection-btn" class="btn-secondary">Test Connection</button>
+            <button id="save-settings-btn" class="btn-primary">Save Settings</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <footer class="app-footer">
+        <div class="footer-left">
+          <span>MetroMate Desktop • Music Artist & Producer Platform</span>
+        </div>
+        <div class="footer-right">
+          <span class="version-badge">v1.2.0</span>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
+
+
