@@ -38,6 +38,8 @@ function initStemUploader() {
   let selectedProjectId = null;
   let rawStoredUrl = localStorage.getItem('metromate_api_url') || 'http://localhost:5050';
   let metromateApiUrl = rawStoredUrl.replace(/\/\/0\.0\.0\.0(?::|$)/, (m) => m.replace('0.0.0.0', '127.0.0.1')).replace(/\/+$/, '');
+  let rawStoredWebUrl = localStorage.getItem('metromate_web_url') || 'http://localhost:3000';
+  let metromateWebUrl = rawStoredWebUrl.replace(/\/\/0\.0\.0\.0(?::|$)/, (m) => m.replace('0.0.0.0', '127.0.0.1')).replace(/\/+$/, '');
   let metromateAuthToken = localStorage.getItem('metromate_auth_token') || '';
   let currentUser = null;
   try {
@@ -102,6 +104,7 @@ function initStemUploader() {
   // DOM Elements - Settings Modal
   const settingsModal = document.getElementById('settings-modal');
   const closeSettingsModalBtn = document.getElementById('close-settings-modal-btn');
+  const settingsWebUrl = document.getElementById('settings-web-url');
   const settingsApiUrl = document.getElementById('settings-api-url');
   const settingsAuthToken = document.getElementById('settings-auth-token');
   const testConnectionBtn = document.getElementById('test-connection-btn');
@@ -1430,8 +1433,18 @@ function initStemUploader() {
   // Open in Metromate Web
   if (openMetromateWebBtn) {
     openMetromateWebBtn.addEventListener('click', () => {
-      const webUrl = `${metromateApiUrl}/projects/${selectedProjectId || ''}`;
-      window.electronAPI.openExternal(webUrl);
+      const baseUrl = (metromateWebUrl || 'http://localhost:3000').replace(/\/+$/, '');
+      const targetProj = metromateProjects.find((p) => p.id === selectedProjectId);
+      let projectPath = selectedProjectId ? `/projects/solo/${selectedProjectId}` : '/projects';
+
+      if (targetProj && targetProj.projectType && targetProj.projectType.toLowerCase() === 'collab') {
+        projectPath = `/projects/collab/${selectedProjectId}`;
+      } else if (selectedProjectId) {
+        projectPath = `/projects/solo/${selectedProjectId}`;
+      }
+
+      const fullUrl = `${baseUrl}${projectPath}`;
+      window.electronAPI.openExternal(fullUrl);
     });
   }
 
@@ -1568,6 +1581,7 @@ function initStemUploader() {
 
   if (settingsBtn && settingsModal) {
     settingsBtn.addEventListener('click', () => {
+      if (settingsWebUrl) settingsWebUrl.value = metromateWebUrl;
       if (settingsApiUrl) settingsApiUrl.value = metromateApiUrl;
       if (settingsAuthToken) settingsAuthToken.value = metromateAuthToken;
       if (testConnectionStatus) testConnectionStatus.classList.add('hidden');
@@ -1624,6 +1638,11 @@ function initStemUploader() {
 
   if (saveSettingsBtn && settingsModal) {
     saveSettingsBtn.addEventListener('click', () => {
+      if (settingsWebUrl) {
+        metromateWebUrl = cleanApiUrl(settingsWebUrl.value || 'http://localhost:3000');
+        settingsWebUrl.value = metromateWebUrl;
+        localStorage.setItem('metromate_web_url', metromateWebUrl);
+      }
       if (settingsApiUrl) {
         metromateApiUrl = cleanApiUrl(settingsApiUrl.value);
         settingsApiUrl.value = metromateApiUrl;
