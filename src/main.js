@@ -388,52 +388,102 @@ ipcMain.handle('api:uploadStem', async (event, { apiUrl, token, projectId, stemD
 
       if (uploadRes.ok) {
         const uploadResult = await uploadRes.json();
-        const uploadedStem = uploadResult.data || {
+        const rawFileUrl = (uploadResult.data && uploadResult.data.fileUrl) || uploadResult.fileUrl || (uploadResult.data && uploadResult.data.url) || uploadResult.url || '';
+        let fullAudioUrl = rawFileUrl;
+        if (fullAudioUrl && !fullAudioUrl.startsWith('http://') && !fullAudioUrl.startsWith('https://')) {
+          fullAudioUrl = `${baseUrl}${fullAudioUrl.startsWith('/') ? '' : '/'}${fullAudioUrl}`;
+        }
+
+        const uploadedStem = {
           name: stemTitle,
-          fileUrl: uploadResult.fileUrl || '',
+          title: stemTitle,
+          bpm: stemData.bpm || '',
+          key: stemData.key || '',
+          description: stemData.description || '',
+          fileUrl: fullAudioUrl || rawFileUrl,
+          url: fullAudioUrl || rawFileUrl,
+          audioUrl: fullAudioUrl || rawFileUrl,
+          relativeUrl: rawFileUrl,
           uploadedBy: uploader,
           sizeBytes: fileBuffer.length,
           createdAt: new Date().toISOString(),
+          ...(uploadResult.data || {}),
+          fileUrl: fullAudioUrl || rawFileUrl,
+          url: fullAudioUrl || rawFileUrl,
+          audioUrl: fullAudioUrl || rawFileUrl,
         };
 
-        // If project ID is provided and is a Mongo ID, attach stem to SoloProject via PUT /api/projects/solo/:id
+        // If project ID is provided and is a Mongo ID, attach stem to SoloProject or CollabProject
         if (projectId && !projectId.startsWith('proj_demo_')) {
+          const stemPayload = {
+            id: `stem_${Date.now()}`,
+            name: stemTitle,
+            title: stemTitle,
+            bpm: stemData.bpm || '',
+            key: stemData.key || '',
+            description: stemData.description || '',
+            fileUrl: fullAudioUrl || rawFileUrl,
+            url: fullAudioUrl || rawFileUrl,
+            audioUrl: fullAudioUrl || rawFileUrl,
+            sizeBytes: fileBuffer.length,
+            uploadedBy: uploader,
+            createdAt: new Date().toISOString(),
+          };
+
+          let attached = false;
+
+          // 1. Try attaching to SoloProject via PUT /api/projects/solo/:id
           try {
-            // Get existing project stems first
             const projRes = await fetch(`${baseUrl}/api/projects/solo/${projectId}`);
             if (projRes.ok) {
               const projData = await projRes.json();
               const currentProject = projData.data || projData;
-              const existingStems = Array.isArray(currentProject.stems) ? currentProject.stems : [];
-              
-              const updatedStems = [
-                ...existingStems,
-                {
-                  id: `stem_${Date.now()}`,
-                  name: stemTitle,
-                  title: stemTitle,
-                  bpm: stemData.bpm || '',
-                  key: stemData.key || '',
-                  description: stemData.description || '',
-                  fileUrl: uploadedStem.fileUrl,
-                  sizeBytes: fileBuffer.length,
-                  uploadedBy: uploader,
-                  createdAt: new Date().toISOString(),
-                }
-              ];
+              if (currentProject && (currentProject._id || currentProject.id)) {
+                const existingStems = Array.isArray(currentProject.stems) ? currentProject.stems : [];
+                const updatedStems = [...existingStems, stemPayload];
 
-              await fetch(`${baseUrl}/api/projects/solo/${projectId}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                  ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({ stems: updatedStems }),
-              });
+                await fetch(`${baseUrl}/api/projects/solo/${projectId}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                  },
+                  body: JSON.stringify({ stems: updatedStems }),
+                });
+                attached = true;
+              }
             }
           } catch (attachErr) {
             console.warn('Could not attach stem to SoloProject document:', attachErr.message);
+          }
+
+          // 2. If not a SoloProject, try attaching to CollabProject via PUT /api/projects/collab/:id
+          if (!attached) {
+            try {
+              const collabRes = await fetch(`${baseUrl}/api/projects/collab/${projectId}`);
+              if (collabRes.ok) {
+                const collabData = await collabRes.json();
+                const currentCollab = collabData.data || collabData;
+                if (currentCollab && (currentCollab._id || currentCollab.id)) {
+                  const existingStems = Array.isArray(currentCollab.stems) ? currentCollab.stems : [];
+                  const updatedStems = [...existingStems, stemPayload];
+
+                  await fetch(`${baseUrl}/api/projects/collab/${projectId}`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json',
+                      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({ stems: updatedStems }),
+                  });
+                  attached = true;
+                }
+              }
+            } catch (collabErr) {
+              console.warn('Could not attach stem to CollabProject document:', collabErr.message);
+            }
           }
         }
 
