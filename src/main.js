@@ -242,13 +242,31 @@ ipcMain.handle('api:getProjects', async (event, { apiUrl, token, artistEmail }) 
         const keyVal = p.musicalKey || p.songInfoData?.musicalKey || p.ideationData?.musicalKey || p.key || '';
         const stemsList = Array.isArray(p.stems) ? p.stems : [];
 
+        // Extract raw stage directly from MongoDB document (e.g. "Idea / Composition", "Recording", "Pre-Production", etc.)
+        let rawStage = p.stage || p.currentStage || p.workflowStage || p.productionStage || p.status || p.songInfoData?.stage || '';
+
+        // If not explicitly set, infer from active nested sub-documents
+        if (!rawStage || rawStage.trim() === '' || rawStage === 'In Progress' || rawStage === 'active') {
+          if (p.releaseData && Object.keys(p.releaseData).length > 0 && (p.releaseData.isCompleted || p.releaseData.status)) {
+            rawStage = 'Release & Distribution';
+          } else if ((p.postproductionData || p.postProductionData || p.mixingData) && Object.keys(p.postproductionData || p.postProductionData || p.mixingData || {}).length > 0) {
+            rawStage = 'Mixing & Mastering';
+          } else if ((p.recordingData || p.productionData) && Object.keys(p.recordingData || p.productionData || {}).length > 0) {
+            rawStage = 'Recording';
+          } else if ((p.preproductionData || p.preProductionData) && Object.keys(p.preproductionData || p.preProductionData || {}).length > 0) {
+            rawStage = 'Pre-Production';
+          } else {
+            rawStage = 'Idea / Composition';
+          }
+        }
+
         return {
           id: id,
           _id: id,
           title: p.title || p.songInfoData?.songTitle || 'Untitled Solo Project',
           projectType: p.projectType || p.type || 'Single',
           genre: p.genre || p.songInfoData?.genre || 'General',
-          stage: p.stage || 'In Progress',
+          stage: rawStage,
           progress: p.progress !== undefined ? p.progress : 0,
           bpm: bpmVal,
           musicalKey: keyVal,

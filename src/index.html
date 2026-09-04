@@ -185,7 +185,17 @@
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="text" id="project-search-input" placeholder="Search your collaboration projects..." />
+            <input type="text" id="project-search-input" placeholder="Search projects by title, artist, or stage..." />
+          </div>
+
+          <!-- Stage Filters -->
+          <div class="stage-filter-bar" id="stage-filter-bar">
+            <button class="stage-pill active" data-stage="all">All Stages</button>
+            <button class="stage-pill stage-ideation" data-stage="idea">💡 Idea / Composition</button>
+            <button class="stage-pill stage-pre-prod" data-stage="pre">📝 Pre-Prod</button>
+            <button class="stage-pill stage-prod" data-stage="record">🎙️ Recording</button>
+            <button class="stage-pill stage-post-prod" data-stage="mix">🎚️ Mix & Master</button>
+            <button class="stage-pill stage-release" data-stage="rel">🚀 Release</button>
           </div>
 
           <!-- Project Cards Container -->

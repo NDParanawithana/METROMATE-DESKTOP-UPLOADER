@@ -36,6 +36,7 @@ function initStemUploader() {
   let selectedStems = [];
   let metromateProjects = [];
   let selectedProjectId = null;
+  let selectedStageFilter = 'all';
   let rawStoredUrl = localStorage.getItem('metromate_api_url') || 'http://localhost:5050';
   let metromateApiUrl = rawStoredUrl.replace(/\/\/0\.0\.0\.0(?::|$)/, (m) => m.replace('0.0.0.0', '127.0.0.1')).replace(/\/+$/, '');
   let rawStoredWebUrl = localStorage.getItem('metromate_web_url') || 'http://localhost:3000';
@@ -1205,11 +1206,58 @@ function initStemUploader() {
       projectsList.appendChild(userHeader);
     }
 
+    function getStageBadgeInfo(stage) {
+      const s = String(stage || '').trim() || 'Idea / Composition';
+      const lower = s.toLowerCase().replace(/[-_]/g, ' ');
+
+      if (lower.includes('record') || lower.includes('track') || lower.includes('prod') || lower.includes('vocal') || lower.includes('session')) {
+        return { icon: '🎙️', label: s || 'Recording', className: 'recording', category: 'recording' };
+      }
+      if (lower.includes('pre')) {
+        return { icon: '📝', label: s || 'Pre-Production', className: 'pre-production', category: 'pre-production' };
+      }
+      if (lower.includes('mix') || lower.includes('master') || lower.includes('post')) {
+        return { icon: '🎚️', label: s || 'Mixing & Mastering', className: 'post-production', category: 'post-production' };
+      }
+      if (lower.includes('rel') || lower.includes('distrib') || lower.includes('done') || lower.includes('complete') || lower.includes('publish')) {
+        return { icon: '🚀', label: s || 'Release', className: 'release', category: 'release' };
+      }
+      if (lower.includes('idea') || lower.includes('comp') || lower.includes('writ') || lower.includes('draft') || lower.includes('brainstorm')) {
+        return { icon: '💡', label: s || 'Idea / Composition', className: 'ideation', category: 'ideation' };
+      }
+
+      return { icon: '🎵', label: s, className: 'default', category: 'general' };
+    }
+
     const query = (filterText || '').trim().toLowerCase();
     const filtered = metromateProjects.filter((p) => {
+      const stageInfo = getStageBadgeInfo(p.stage);
+
+      // Stage category filter
+      if (selectedStageFilter !== 'all') {
+        const filter = selectedStageFilter.toLowerCase();
+        const stageCat = (stageInfo.category || '').toLowerCase();
+        const stageText = String(p.stage || '').toLowerCase();
+        const labelText = String(stageInfo.label || '').toLowerCase();
+
+        let match = false;
+        if (filter === 'idea' && (stageCat === 'ideation' || stageText.includes('idea') || stageText.includes('comp') || labelText.includes('idea') || labelText.includes('comp'))) match = true;
+        else if (filter === 'pre' && (stageCat === 'pre-production' || stageText.includes('pre') || labelText.includes('pre'))) match = true;
+        else if (filter === 'record' && (stageCat === 'recording' || stageText.includes('record') || stageText.includes('prod') || labelText.includes('record') || labelText.includes('prod'))) match = true;
+        else if (filter === 'mix' && (stageCat === 'post-production' || stageText.includes('mix') || stageText.includes('master') || stageText.includes('post') || labelText.includes('mix') || labelText.includes('master'))) match = true;
+        else if (filter === 'rel' && (stageCat === 'release' || stageText.includes('rel') || stageText.includes('distrib') || labelText.includes('rel'))) match = true;
+        else if (stageText.includes(filter) || labelText.includes(filter)) match = true;
+
+        if (!match) return false;
+      }
+
+      // Search query filter
+      if (!query) return true;
       const title = (p.title || '').toLowerCase();
       const collabs = (p.collaborators || []).join(' ').toLowerCase();
-      return title.includes(query) || collabs.includes(query);
+      const genre = (p.genre || '').toLowerCase();
+      const stageName = stageInfo.label.toLowerCase();
+      return title.includes(query) || collabs.includes(query) || genre.includes(query) || stageName.includes(query);
     });
 
     if (filtered.length === 0) {
@@ -1218,7 +1266,7 @@ function initStemUploader() {
       emptyState.style.textAlign = 'center';
       emptyState.style.padding = '2rem';
       emptyState.style.color = 'var(--text-secondary)';
-      emptyState.textContent = 'No collaboration projects found.';
+      emptyState.textContent = 'No matching projects found.';
       projectsList.appendChild(emptyState);
       return;
     }
@@ -1229,13 +1277,16 @@ function initStemUploader() {
       card.setAttribute('data-project-id', proj.id);
 
       const collabsList = Array.isArray(proj.collaborators) ? proj.collaborators.join(', ') : 'Solo Project';
+      const stageInfo = getStageBadgeInfo(proj.stage);
 
       card.innerHTML = `
         <div class="project-card-header">
           <span class="project-card-title">${proj.title}</span>
-          <span class="project-meta-badge">${proj.stemCount || 0} stems</span>
+          <span class="project-stage-badge ${stageInfo.className}">${stageInfo.icon} ${stageInfo.label}</span>
         </div>
         <div class="project-card-badges">
+          <span class="project-meta-badge">${proj.stemCount || 0} stems</span>
+          ${proj.genre ? `<span class="project-meta-badge">🎸 ${proj.genre}</span>` : ''}
           ${proj.bpm ? `<span class="project-meta-badge bpm">🎵 ${proj.bpm} BPM</span>` : ''}
           ${proj.musicalKey ? `<span class="project-meta-badge key">🎹 ${proj.musicalKey}</span>` : ''}
         </div>
@@ -1415,6 +1466,20 @@ function initStemUploader() {
   if (projectSearchInput) {
     projectSearchInput.addEventListener('input', (e) => {
       renderProjectsList(e.target.value);
+    });
+  }
+
+  // Stage filter bar buttons
+  const stageFilterBar = document.getElementById('stage-filter-bar');
+  if (stageFilterBar) {
+    const stagePills = stageFilterBar.querySelectorAll('.stage-pill');
+    stagePills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        stagePills.forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        selectedStageFilter = pill.getAttribute('data-stage') || 'all';
+        renderProjectsList(projectSearchInput ? projectSearchInput.value : '');
+      });
     });
   }
 
