@@ -1,15 +1,108 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, Tray, Menu, Notification, nativeImage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const SettingsManager = require('./services/settingsManager');
+const StemWatcher = require('./services/stemWatcher');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+let mainWindow = null;
+let appTray = null;
+let settingsManager = null;
+let stemWatcher = null;
+
+// Helper: Create a 16x16 tray icon
+function createTrayIcon() {
+  // A clean 16x16 SVG data URI with waveform and neon accent
+  const svgString = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+      <rect width="16" height="16" rx="3" fill="#0B0E14" />
+      <rect x="2" y="6" width="2" height="4" rx="1" fill="#CCFF00" />
+      <rect x="5" y="3" width="2" height="10" rx="1" fill="#7C5CFC" />
+      <rect x="8" y="5" width="2" height="6" rx="1" fill="#CCFF00" />
+      <rect x="11" y="2" width="2" height="12" rx="1" fill="#7C5CFC" />
+      <rect x="14" y="7" width="1" height="2" rx="0.5" fill="#CCFF00" />
+    </svg>
+  `;
+  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svgString).toString('base64')}`);
+}
+
+function updateTrayMenu() {
+  if (!appTray) return;
+
+  const isPaused = stemWatcher ? stemWatcher.isPaused : false;
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open MetroMate Uploader',
+      click: () => {
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: isPaused ? '▶ Resume Stem Watcher' : '⏸ Pause Stem Watcher',
+      click: async () => {
+        if (!stemWatcher) return;
+        if (isPaused) {
+          await stemWatcher.resume();
+          settingsManager.saveSettings({ isPaused: false });
+        } else {
+          await stemWatcher.pause();
+          settingsManager.saveSettings({ isPaused: true });
+        }
+        updateTrayMenu();
+      },
+    },
+    {
+      label: '📁 Open Watch Folder',
+      click: async () => {
+        if (stemWatcher) {
+          const folder = stemWatcher.getWatchFolder();
+          if (fs.existsSync(folder)) {
+            shell.openPath(folder);
+          } else {
+            dialog.showErrorBox('Watch Folder Missing', `Folder does not exist:\n${folder}`);
+          }
+        }
+      },
+    },
+    {
+      label: '⚙ Settings',
+      click: () => {
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.show();
+          mainWindow.focus();
+          mainWindow.webContents.send('app:openSettings');
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        app.isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  appTray.setContextMenu(contextMenu);
+  appTray.setToolTip(
+    `MetroMate Stem Watcher (${isPaused ? 'Paused' : 'Watching: ' + path.basename(stemWatcher?.getWatchFolder() || '')})`
+  );
+}
+
 const createWindow = () => {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     title: 'MetroMate - Desktop Stem Uploader',
     width: 1120,
     height: 740,
@@ -23,16 +116,91 @@ const createWindow = () => {
 
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 };
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // 1. Initialize Settings and Watcher
+  settingsManager = new SettingsManager(app);
+  const settings = settingsManager.getSettings();
+
+  stemWatcher = new StemWatcher({
+    watchFolder: settings.watchFolder,
+    isPaused: settings.isPaused,
+    debounceDelay: 1200,
+  });
+
+  // 2. Set up notification and event bridging
+  stemWatcher.on('stems-detected', (data) => {
+    // Forward to renderer
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('watcher:stemsDetected', data);
+    }
+
+    // Show native Windows notification
+    try {
+      if (Notification.isSupported()) {
+        const title = 'New stems detected';
+        const count = data.count || (data.stems ? data.stems.length : 1);
+        const stemList = (data.stems || []).map((s) => s.name).slice(0, 3).join(', ');
+        const extra = count > 3 ? ` and ${count - 3} more` : '';
+        const body = `${count} ${count === 1 ? 'WAV stem is' : 'WAV stems are'} ready to upload. (${stemList}${extra})`;
+
+        const notif = new Notification({
+          title,
+          body,
+          silent: false,
+        });
+
+        notif.on('click', () => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.show();
+            mainWindow.focus();
+            mainWindow.webContents.send('watcher:focusDetectedStems', data);
+          }
+        });
+
+        notif.show();
+      }
+    } catch (notifErr) {
+      console.warn('[Main] Could not display Windows notification:', notifErr.message);
+    }
+  });
+
+  stemWatcher.on('status-changed', (status) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('watcher:statusChanged', status);
+    }
+    updateTrayMenu();
+  });
+
+  // 3. Create Tray Icon
+  try {
+    appTray = new Tray(createTrayIcon());
+    updateTrayMenu();
+    appTray.on('click', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+  } catch (trayErr) {
+    console.warn('[Main] Tray initialization warning:', trayErr.message);
+  }
+
+  // 4. Create Main Window
   createWindow();
 
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
+  // 5. Start Watcher
+  await stemWatcher.start();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -193,47 +361,55 @@ ipcMain.handle('api:login', async (event, { apiUrl, email, password }) => {
 ipcMain.handle('api:getProjects', async (event, { apiUrl, token, artistEmail }) => {
   const baseUrl = normalizeApiUrl(apiUrl);
 
-  // Candidate endpoints for fetching projects
+  // Check if server is alive
+  let isServerAlive = false;
+  try {
+    const hRes = await fetch(`${baseUrl}/api/health`, { signal: AbortSignal.timeout(3000) });
+    if (hRes.ok) isServerAlive = true;
+  } catch (_) {}
+
+  // If user is not logged in, require authentication
+  if (!artistEmail && !token) {
+    return {
+      success: false,
+      isOnline: isServerAlive,
+      requiresAuth: true,
+      error: 'Please log in to your MetroMate account to view and upload to your projects.',
+      projects: [],
+    };
+  }
+
+  // Candidate endpoints for fetching projects for the authenticated artist
   const candidateEndpoints = [];
   if (artistEmail) {
     candidateEndpoints.push(`${baseUrl}/api/projects/solo?artistEmail=${encodeURIComponent(artistEmail)}`);
+    candidateEndpoints.push(`${baseUrl}/api/projects/collab?artistEmail=${encodeURIComponent(artistEmail)}`);
+  } else {
+    candidateEndpoints.push(
+      `${baseUrl}/api/projects/solo`,
+      `${baseUrl}/api/projects/collab`,
+      `${baseUrl}/api/projects`
+    );
   }
-  candidateEndpoints.push(
-    `${baseUrl}/api/projects/solo`,
-    `${baseUrl}/api/projects`,
-    `${baseUrl}/projects`,
-    `${baseUrl}/api/v1/projects`
-  );
 
   const headers = { 'Accept': 'application/json' };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  let isServerAlive = false;
-  let lastStatus = null;
-  let lastErrorMsg = '';
+  let allProjects = [];
 
   for (const url of candidateEndpoints) {
     try {
       const response = await fetch(url, { method: 'GET', headers, signal: AbortSignal.timeout(6000) });
       
-      if (response.status === 404) {
-        lastStatus = 404;
-        isServerAlive = true;
-        continue;
-      }
-
       if (!response.ok) {
-        lastStatus = response.status;
-        isServerAlive = true;
-        throw new Error(`Server returned HTTP ${response.status}`);
+        continue;
       }
 
       const data = await response.json();
       isServerAlive = true;
 
-      // Extract raw projects list from response (handles { success: true, data: [...] } or { projects: [...] })
       const rawList = Array.isArray(data) ? data : (data.data || data.projects || []);
 
       const formattedProjects = rawList.map((p) => {
@@ -242,35 +418,19 @@ ipcMain.handle('api:getProjects', async (event, { apiUrl, token, artistEmail }) 
         const keyVal = p.musicalKey || p.songInfoData?.musicalKey || p.ideationData?.musicalKey || p.key || '';
         const stemsList = Array.isArray(p.stems) ? p.stems : [];
 
-        // Extract raw stage directly from MongoDB document (e.g. "Idea / Composition", "Recording", "Pre-Production", etc.)
-        let rawStage = p.stage || p.currentStage || p.workflowStage || p.productionStage || p.status || p.songInfoData?.stage || '';
-
-        // If not explicitly set, infer from active nested sub-documents
-        if (!rawStage || rawStage.trim() === '' || rawStage === 'In Progress' || rawStage === 'active') {
-          if (p.releaseData && Object.keys(p.releaseData).length > 0 && (p.releaseData.isCompleted || p.releaseData.status)) {
-            rawStage = 'Release & Distribution';
-          } else if ((p.postproductionData || p.postProductionData || p.mixingData) && Object.keys(p.postproductionData || p.postProductionData || p.mixingData || {}).length > 0) {
-            rawStage = 'Mixing & Mastering';
-          } else if ((p.recordingData || p.productionData) && Object.keys(p.recordingData || p.productionData || {}).length > 0) {
-            rawStage = 'Recording';
-          } else if ((p.preproductionData || p.preProductionData) && Object.keys(p.preproductionData || p.preProductionData || {}).length > 0) {
-            rawStage = 'Pre-Production';
-          } else {
-            rawStage = 'Idea / Composition';
-          }
-        }
+        let rawStage = p.stage || p.currentStage || p.workflowStage || p.productionStage || p.status || p.songInfoData?.stage || 'Idea / Composition';
 
         return {
           id: id,
           _id: id,
-          title: p.title || p.songInfoData?.songTitle || 'Untitled Solo Project',
-          projectType: p.projectType || p.type || 'Single',
+          title: p.title || p.songInfoData?.songTitle || 'Untitled Project',
+          projectType: p.projectType || p.type || (p.collaboratorEmails ? 'Collab' : 'Single'),
           genre: p.genre || p.songInfoData?.genre || 'General',
           stage: rawStage,
           progress: p.progress !== undefined ? p.progress : 0,
           bpm: bpmVal,
           musicalKey: keyVal,
-          collaborators: p.collaborators || (p.artistEmail ? [p.artistEmail] : ['Solo Project']),
+          collaborators: p.collaboratorNames || p.collaborators || (p.artistEmail ? [p.artistEmail] : ['Solo Project']),
           artistEmail: p.artistEmail || '',
           stems: stemsList,
           stemCount: stemsList.length,
@@ -278,77 +438,24 @@ ipcMain.handle('api:getProjects', async (event, { apiUrl, token, artistEmail }) 
         };
       });
 
-      console.log(`Fetched ${formattedProjects.length} projects from ${url}`);
-
-      return {
-        success: true,
-        isOnline: true,
-        endpoint: url,
-        projects: formattedProjects,
-      };
+      allProjects = allProjects.concat(formattedProjects);
     } catch (err) {
-      lastErrorMsg = err.message;
-      if (lastStatus !== 404) {
-        break;
-      }
+      console.warn('Error querying endpoint:', url, err.message);
     }
   }
 
-  // If projects routes failed, check /api/health to confirm if server is alive
-  if (!isServerAlive) {
-    try {
-      const hRes = await fetch(`${baseUrl}/api/health`, { signal: AbortSignal.timeout(3000) });
-      if (hRes.ok) isServerAlive = true;
-    } catch (_) {}
-  }
-
-  console.warn('Could not fetch projects from backend:', baseUrl, lastErrorMsg || `Status ${lastStatus}`);
-
-  const fallbackProjects = [
-    {
-      id: 'proj_demo_01',
-      title: 'Neon Nights Collaboration',
-      bpm: 128,
-      musicalKey: 'A Minor',
-      collaborators: ['Stan', 'Producer Alex'],
-      stemCount: 4,
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'proj_demo_02',
-      title: 'Midnight Lo-Fi Session',
-      bpm: 85,
-      musicalKey: 'C# Minor',
-      collaborators: ['Stan', 'Sarah Vocalist'],
-      stemCount: 6,
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'proj_demo_03',
-      title: 'Cinematic Atmosphere 2026',
-      bpm: 110,
-      musicalKey: 'F Major',
-      collaborators: ['Stan'],
-      stemCount: 2,
-      updatedAt: new Date().toISOString(),
-    },
-  ];
-
-  if (isServerAlive) {
-    return {
-      success: true,
-      isOnline: true,
-      isDemoFallback: true,
-      warning: `Connected to backend at ${baseUrl}, but no solo projects were found or route returned 404.`,
-      projects: fallbackProjects,
-    };
-  }
+  // Deduplicate by project ID
+  const seenIds = new Set();
+  const uniqueProjects = allProjects.filter((p) => {
+    if (seenIds.has(p.id)) return false;
+    seenIds.add(p.id);
+    return true;
+  });
 
   return {
-    success: false,
-    isOnline: false,
-    error: `Could not connect to backend at ${baseUrl}. Showing offline/demo projects.`,
-    projects: fallbackProjects,
+    success: true,
+    isOnline: isServerAlive,
+    projects: uniqueProjects,
   };
 });
 
@@ -357,6 +464,13 @@ ipcMain.handle('api:uploadStem', async (event, { apiUrl, token, projectId, stemD
   const baseUrl = normalizeApiUrl(apiUrl);
 
   try {
+    if (!artistEmail && !token) {
+      return {
+        success: false,
+        error: 'Authentication required: You must be logged in to your MetroMate account to upload stems.',
+      };
+    }
+
     if (!filePath || !fs.existsSync(filePath)) {
       throw new Error(`Stem file does not exist on disk: ${filePath}`);
     }
@@ -559,6 +673,149 @@ ipcMain.handle('shell:openExternal', async (event, url) => {
   }
   return false;
 });
+
+// ==========================================
+// 4. STEM WATCHER IPC HANDLERS
+// ==========================================
+
+// Get current watcher status & configuration
+ipcMain.handle('watcher:getStatus', async () => {
+  if (!stemWatcher) {
+    return { status: 'unavailable', folder: '', isPaused: false, pendingCount: 0 };
+  }
+  return stemWatcher.getStatus();
+});
+
+// Set custom watch folder and persist
+ipcMain.handle('watcher:setFolder', async (event, folderPath) => {
+  try {
+    if (!folderPath || typeof folderPath !== 'string') {
+      throw new Error('Invalid folder path provided.');
+    }
+    const cleanPath = path.normalize(folderPath.trim());
+    if (stemWatcher) {
+      await stemWatcher.setWatchFolder(cleanPath);
+    }
+    if (settingsManager) {
+      settingsManager.saveSettings({ watchFolder: cleanPath });
+    }
+    updateTrayMenu();
+    return { success: true, status: stemWatcher ? stemWatcher.getStatus() : null };
+  } catch (err) {
+    console.error('[Main] watcher:setFolder error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Open native folder selection dialog
+ipcMain.handle('watcher:selectFolderDialog', async () => {
+  const win = mainWindow || BrowserWindow.getFocusedWindow();
+  const defaultPath = stemWatcher ? stemWatcher.getWatchFolder() : app.getPath('music');
+
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    title: 'Select Stem Watch Folder',
+    defaultPath: fs.existsSync(defaultPath) ? defaultPath : undefined,
+    properties: ['openDirectory', 'createDirectory'],
+  });
+
+  if (canceled || !filePaths || filePaths.length === 0) {
+    return { canceled: true };
+  }
+
+  const selectedFolder = filePaths[0];
+  if (stemWatcher) {
+    await stemWatcher.setWatchFolder(selectedFolder);
+  }
+  if (settingsManager) {
+    settingsManager.saveSettings({ watchFolder: selectedFolder });
+  }
+  updateTrayMenu();
+
+  return {
+    canceled: false,
+    folder: selectedFolder,
+    status: stemWatcher ? stemWatcher.getStatus() : null,
+  };
+});
+
+// Reset watch folder to default Music directory
+ipcMain.handle('watcher:resetDefault', async () => {
+  try {
+    const defaultFolder = settingsManager ? settingsManager.getDefaultWatchFolder() : path.join(app.getPath('music'), 'Collaboration Stems');
+    if (stemWatcher) {
+      await stemWatcher.setWatchFolder(defaultFolder);
+    }
+    if (settingsManager) {
+      settingsManager.saveSettings({ watchFolder: defaultFolder });
+    }
+    updateTrayMenu();
+    return { success: true, folder: defaultFolder, status: stemWatcher ? stemWatcher.getStatus() : null };
+  } catch (err) {
+    console.error('[Main] watcher:resetDefault error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Pause watching
+ipcMain.handle('watcher:pause', async () => {
+  if (stemWatcher) {
+    await stemWatcher.pause();
+    if (settingsManager) {
+      settingsManager.saveSettings({ isPaused: true });
+    }
+    updateTrayMenu();
+    return stemWatcher.getStatus();
+  }
+  return { status: 'paused', isPaused: true };
+});
+
+// Resume watching
+ipcMain.handle('watcher:resume', async () => {
+  if (stemWatcher) {
+    await stemWatcher.resume();
+    if (settingsManager) {
+      settingsManager.saveSettings({ isPaused: false });
+    }
+    updateTrayMenu();
+    return stemWatcher.getStatus();
+  }
+  return { status: 'watching', isPaused: false };
+});
+
+// Open watch folder in Windows Explorer
+ipcMain.handle('watcher:openFolder', async () => {
+  if (stemWatcher) {
+    const folder = stemWatcher.getWatchFolder();
+    if (!fs.existsSync(folder)) {
+      try {
+        fs.mkdirSync(folder, { recursive: true });
+      } catch (err) {
+        return { success: false, error: `Could not create folder: ${err.message}` };
+      }
+    }
+    await shell.openPath(folder);
+    return { success: true, folder };
+  }
+  return { success: false, error: 'Watcher not initialized' };
+});
+
+// Get pending unreviewed stems
+ipcMain.handle('watcher:getPendingStems', async () => {
+  if (stemWatcher) {
+    return stemWatcher.getPendingStems();
+  }
+  return [];
+});
+
+// Dismiss pending stems
+ipcMain.handle('watcher:dismissPending', async () => {
+  if (stemWatcher) {
+    stemWatcher.clearPendingStems();
+    return true;
+  }
+  return false;
+});
+
 
 
 

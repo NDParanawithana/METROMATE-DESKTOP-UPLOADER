@@ -66,6 +66,42 @@
 
       <!-- MAIN CONTAINER -->
       <main class="main-content">
+        <!-- NOTIFICATION: DETECTED STEMS BANNER -->
+        <div id="detected-stems-banner" class="detected-stems-banner hidden">
+          <div class="detected-banner-glow"></div>
+          <div class="detected-banner-content">
+            <div class="detected-banner-left">
+              <div class="detected-badge-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+              </div>
+              <div class="detected-text-block">
+                <div class="detected-title-row">
+                  <span class="detected-tag">NEW STEMS DETECTED</span>
+                  <span id="detected-count-badge" class="detected-count-badge">0 ready</span>
+                </div>
+                <p id="detected-subtitle" class="detected-subtitle">Audio stems exported from FL Studio are ready to review</p>
+                <div id="detected-preview-list" class="detected-preview-list">
+                  <!-- Stems preview items populated dynamically -->
+                </div>
+              </div>
+            </div>
+            <div class="detected-banner-actions">
+              <button id="review-detected-stems-btn" class="btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 11 12 14 22 4"></polyline>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                <span>Review Stems</span>
+              </button>
+              <button id="dismiss-detected-stems-btn" class="btn-text-muted" title="Dismiss notification">Dismiss</button>
+            </div>
+          </div>
+        </div>
+
         <!-- WIZARD STEPPER -->
         <nav id="wizard-stepper" class="wizard-stepper" aria-label="Upload Progress Steps">
           <div class="step-indicator active" data-step="1">
@@ -84,13 +120,52 @@
           </div>
         </nav>
 
-        <!-- SCREEN 1A: HERO & DROPZONE (Initial State) -->
+        <!-- SCREEN 1A: HERO, WATCHER & DROPZONE (Initial State) -->
         <section id="upload-card" class="upload-card">
           <div class="hero-header-block">
             <h1 class="hero-title">Upload Stems to Your Collaboration</h1>
             <p class="hero-subtitle">
               Export your audio stems from FL Studio, analyze tempo & key automatically, and upload them directly into your MetroMate project.
             </p>
+          </div>
+
+          <!-- STEM WATCHER PANEL -->
+          <div class="watcher-panel-card" id="watcher-panel-card">
+            <div class="watcher-panel-header">
+              <div class="watcher-title-group">
+                <div class="watcher-title-row">
+                  <span class="watcher-section-label">STEM WATCHER</span>
+                  <span id="watcher-status-badge" class="watcher-status-badge watching">
+                    <span class="status-dot-pulse"></span>
+                    <span id="watcher-status-text">Watching</span>
+                  </span>
+                </div>
+                <p class="watcher-desc-text">
+                  Export stems from FL Studio to your watch folder — new WAV files are automatically detected and queued for review.
+                </p>
+              </div>
+              <div class="watcher-header-actions">
+                <button id="watcher-toggle-btn" class="btn-secondary btn-sm" title="Pause / Resume Watcher">
+                  <span id="watcher-toggle-text">⏸ Pause</span>
+                </button>
+                <button id="watcher-open-folder-btn" class="btn-secondary btn-sm" title="Open watch folder in Explorer">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                  <span>Open Folder</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="watcher-folder-bar">
+              <div class="folder-path-display">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span id="watcher-folder-path-text" class="folder-path-text" title="Stem Watch Folder">Loading watch folder...</span>
+              </div>
+              <button id="watcher-change-folder-btn" class="btn-text-accent" title="Select a different folder">Change Folder</button>
+            </div>
           </div>
 
           <div id="drag-drop-zone" class="drag-drop-zone" tabindex="0" role="button" aria-label="Drop audio files here or click to browse">
@@ -347,6 +422,26 @@
               <label class="stem-field-label" for="settings-auth-token">API Bearer Token (Optional)</label>
               <input type="password" id="settings-auth-token" class="stem-input" placeholder="Enter custom JWT token or leave blank" />
               <span class="field-hint">Auto-filled when you log in through the app.</span>
+            </div>
+
+            <!-- WATCH FOLDER SETTINGS SECTION -->
+            <div class="settings-section-divider"></div>
+            <div class="settings-section-header">
+              <span class="settings-section-title">STEM WATCH FOLDER</span>
+            </div>
+
+            <div class="stem-field-group">
+              <label class="stem-field-label" for="settings-watch-folder">Watched Folder Path</label>
+              <div class="settings-input-with-action">
+                <input type="text" id="settings-watch-folder" class="stem-input" placeholder="C:\Users\...\Music\Collaboration Stems" readonly />
+                <button type="button" id="settings-browse-folder-btn" class="btn-secondary btn-sm" title="Choose new watch folder">Browse</button>
+              </div>
+              <span class="field-hint">FL Studio stems exported here will be detected automatically.</span>
+            </div>
+
+            <div class="settings-folder-actions-row">
+              <button type="button" id="settings-reset-folder-btn" class="btn-text-accent btn-sm">Reset to Default</button>
+              <button type="button" id="settings-open-folder-btn" class="btn-text btn-sm">Open in Explorer</button>
             </div>
 
             <div id="test-connection-status" class="test-status hidden"></div>

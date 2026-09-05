@@ -86,6 +86,10 @@ html, body {
   gap: 2rem;
 }
 
+.main-content > * {
+  flex-shrink: 0;
+}
+
 /* ==========================================================================
    3. HEADER & BRAND
    ========================================================================== */
@@ -1547,6 +1551,387 @@ html, body {
   color: #ff5c5c;
   background-color: rgba(255, 92, 92, 0.12);
 }
+
+/* ==========================================================================
+   STEM WATCHER & NOTIFICATION BANNER STYLES
+   ========================================================================== */
+
+/* Detected Stems Banner */
+.detected-stems-banner {
+  position: relative;
+  background: linear-gradient(135deg, rgba(24, 29, 40, 0.95), rgba(18, 22, 31, 0.98));
+  border: 1px solid rgba(204, 255, 0, 0.4);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(204, 255, 0, 0.12);
+  animation: slideDownFade 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.detected-banner-glow {
+  position: absolute;
+  top: -20px;
+  left: 30px;
+  width: 150px;
+  height: 50px;
+  background: radial-gradient(circle, rgba(204, 255, 0, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.detected-banner-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.detected-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.detected-badge-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(204, 255, 0, 0.12);
+  border: 1px solid rgba(204, 255, 0, 0.3);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: pulseGlow 2.5s infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(204, 255, 0, 0);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(204, 255, 0, 0.35);
+  }
+}
+
+.detected-text-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.detected-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.detected-tag {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.detected-count-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(124, 92, 252, 0.2);
+  border: 1px solid rgba(124, 92, 252, 0.4);
+  color: #c4b5fd;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+}
+
+.detected-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.detected-preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.detected-stem-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.detected-stem-pill .check-icon {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.detected-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.detected-banner-actions .btn-primary {
+  padding: 0.6rem 1.25rem;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.btn-text-muted {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-text-muted:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* STEM WATCHER PANEL CARD */
+.watcher-panel-card {
+  background: linear-gradient(180deg, var(--card) 0%, rgba(24, 29, 40, 0.6) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: border-color var(--transition-normal);
+}
+
+.watcher-panel-card:hover {
+  border-color: rgba(124, 92, 252, 0.35);
+}
+
+.watcher-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.watcher-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.watcher-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.watcher-section-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.watcher-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: all var(--transition-fast);
+}
+
+.watcher-status-badge.watching {
+  background: rgba(53, 199, 89, 0.12);
+  border: 1px solid rgba(53, 199, 89, 0.35);
+  color: #35c759;
+}
+
+.watcher-status-badge.paused {
+  background: rgba(255, 179, 0, 0.12);
+  border: 1px solid rgba(255, 179, 0, 0.35);
+  color: #ffb300;
+}
+
+.watcher-status-badge.unavailable,
+.watcher-status-badge.error {
+  background: rgba(255, 92, 92, 0.12);
+  border: 1px solid rgba(255, 92, 92, 0.35);
+  color: #ff5c5c;
+}
+
+.status-dot-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.watcher-status-badge.watching .status-dot-pulse {
+  animation: dotPulse 2s infinite ease-in-out;
+}
+
+@keyframes dotPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+.watcher-desc-text {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.watcher-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem !important;
+  font-size: 0.78rem !important;
+  height: 32px !important;
+}
+
+.watcher-folder-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: rgba(11, 14, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+}
+
+.folder-path-display {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  flex: 1;
+}
+
+.folder-path-display svg {
+  color: var(--purple);
+  flex-shrink: 0;
+}
+
+.folder-path-text {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.78rem;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-text-accent {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.btn-text-accent:hover {
+  background: rgba(204, 255, 0, 0.1);
+  text-decoration: underline;
+}
+
+/* SETTINGS MODAL WATCH FOLDER ADDITIONS */
+.settings-section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 1.25rem 0 1rem 0;
+}
+
+.settings-section-header {
+  margin-bottom: 0.75rem;
+}
+
+.settings-section-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.settings-input-with-action {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.settings-input-with-action input {
+  flex: 1;
+}
+
+.settings-folder-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
 
 
 

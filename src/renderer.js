@@ -112,6 +112,29 @@ function initStemUploader() {
   const testConnectionStatus = document.getElementById('test-connection-status');
   const saveSettingsBtn = document.getElementById('save-settings-btn');
 
+  // DOM Elements - Stem Watcher
+  const detectedStemsBanner = document.getElementById('detected-stems-banner');
+  const detectedCountBadge = document.getElementById('detected-count-badge');
+  const detectedSubtitle = document.getElementById('detected-subtitle');
+  const detectedPreviewList = document.getElementById('detected-preview-list');
+  const reviewDetectedStemsBtn = document.getElementById('review-detected-stems-btn');
+  const dismissDetectedStemsBtn = document.getElementById('dismiss-detected-stems-btn');
+
+  const watcherStatusBadge = document.getElementById('watcher-status-badge');
+  const watcherStatusText = document.getElementById('watcher-status-text');
+  const watcherFolderPathText = document.getElementById('watcher-folder-path-text');
+  const watcherToggleBtn = document.getElementById('watcher-toggle-btn');
+  const watcherToggleText = document.getElementById('watcher-toggle-text');
+  const watcherOpenFolderBtn = document.getElementById('watcher-open-folder-btn');
+  const watcherChangeFolderBtn = document.getElementById('watcher-change-folder-btn');
+
+  const settingsWatchFolder = document.getElementById('settings-watch-folder');
+  const settingsBrowseFolderBtn = document.getElementById('settings-browse-folder-btn');
+  const settingsResetFolderBtn = document.getElementById('settings-reset-folder-btn');
+  const settingsOpenFolderBtn = document.getElementById('settings-open-folder-btn');
+
+  let latestDetectedStems = [];
+
   // Helper: Format byte size into human readable string (e.g. 24.5 MB)
   function formatFileSize(bytes) {
     if (!bytes || isNaN(bytes) || bytes === 0) return '0 B';
@@ -1120,9 +1143,16 @@ function initStemUploader() {
   // Load Projects from Metromate Express Backend
   async function loadProjects() {
     if (!projectsList) return;
+
+    if (!currentUser) {
+      metromateProjects = [];
+      renderProjectsList('');
+      return;
+    }
+
     projectsList.innerHTML = `
       <div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: var(--text-secondary);">
-        <span>Loading collaboration projects...</span>
+        <span>Loading your collaboration projects...</span>
       </div>
     `;
 
@@ -1162,49 +1192,68 @@ function initStemUploader() {
     if (!projectsList) return;
     projectsList.innerHTML = '';
 
-    // If not logged in, show a prompt banner to log in to access personal projects
+    // If not logged in, show locked state and require sign-in
     if (!currentUser) {
-      const loginBanner = document.createElement('div');
-      loginBanner.style.gridColumn = '1 / -1';
-      loginBanner.style.padding = '0.75rem 1rem';
-      loginBanner.style.backgroundColor = 'rgba(124, 92, 252, 0.1)';
-      loginBanner.style.border = '1px dashed rgba(124, 92, 252, 0.35)';
-      loginBanner.style.borderRadius = 'var(--radius-sm)';
-      loginBanner.style.display = 'flex';
-      loginBanner.style.alignItems = 'center';
-      loginBanner.style.justifyContent = 'space-between';
-      loginBanner.style.gap = '0.75rem';
-      loginBanner.style.marginBottom = '0.5rem';
+      const lockedBox = document.createElement('div');
+      lockedBox.style.gridColumn = '1 / -1';
+      lockedBox.style.textAlign = 'center';
+      lockedBox.style.padding = '3.5rem 1.5rem';
+      lockedBox.style.backgroundColor = 'rgba(124, 92, 252, 0.04)';
+      lockedBox.style.border = '1px dashed rgba(124, 92, 252, 0.35)';
+      lockedBox.style.borderRadius = 'var(--radius-md)';
+      lockedBox.style.display = 'flex';
+      lockedBox.style.flexDirection = 'column';
+      lockedBox.style.alignItems = 'center';
+      lockedBox.style.gap = '1rem';
 
-      loginBanner.innerHTML = `
-        <span style="font-size: 0.82rem; color: #c0abff;">
-          Log in with your Metromate account to load and select your personal projects.
-        </span>
-        <button id="project-prompt-login-btn" class="btn-primary" style="padding: 0.3rem 0.75rem; font-size: 0.75rem;">
-          Log In Now
+      lockedBox.innerHTML = `
+        <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(124, 92, 252, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-primary);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <div>
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: #ffffff; margin-bottom: 0.35rem;">MetroMate Sign-In Required</h3>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); max-width: 440px; margin: 0 auto; line-height: 1.5;">
+            You must be signed in to your MetroMate artist account to load your active collaboration projects and upload audio stems.
+          </p>
+        </div>
+        <button id="project-prompt-login-btn" class="btn-primary" style="padding: 0.65rem 1.5rem; font-size: 0.85rem; margin-top: 0.25rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+            <polyline points="10 17 15 12 10 7"></polyline>
+            <line x1="15" y1="12" x2="3" y2="12"></line>
+          </svg>
+          <span>Sign In to MetroMate</span>
         </button>
       `;
 
-      const promptBtn = loginBanner.querySelector('#project-prompt-login-btn');
+      const promptBtn = lockedBox.querySelector('#project-prompt-login-btn');
       if (promptBtn) {
         promptBtn.addEventListener('click', () => {
           if (loginModal) {
+            if (loginErrorMsg) loginErrorMsg.classList.add('hidden');
             loginModal.classList.remove('hidden');
             if (loginEmail) loginEmail.focus();
           }
         });
       }
 
-      projectsList.appendChild(loginBanner);
-    } else {
-      const userHeader = document.createElement('div');
-      userHeader.style.gridColumn = '1 / -1';
-      userHeader.style.fontSize = '0.82rem';
-      userHeader.style.color = 'var(--text-secondary)';
-      userHeader.style.marginBottom = '0.25rem';
-      userHeader.textContent = `Showing projects for ${currentUser.name || currentUser.email}:`;
-      projectsList.appendChild(userHeader);
+      projectsList.appendChild(lockedBox);
+      if (startUploadToProjectBtn) {
+        startUploadToProjectBtn.setAttribute('disabled', 'true');
+      }
+      return;
     }
+
+    const userHeader = document.createElement('div');
+    userHeader.style.gridColumn = '1 / -1';
+    userHeader.style.fontSize = '0.82rem';
+    userHeader.style.color = 'var(--text-secondary)';
+    userHeader.style.marginBottom = '0.25rem';
+    userHeader.textContent = `Showing projects for ${currentUser.name || currentUser.email}:`;
+    projectsList.appendChild(userHeader);
 
     function getStageBadgeInfo(stage) {
       const s = String(stage || '').trim() || 'Idea / Composition';
@@ -1326,6 +1375,18 @@ function initStemUploader() {
 
   // Execute Stem Upload Process (STEP 3)
   async function startStemUploads() {
+    if (!currentUser) {
+      if (loginErrorMsg) {
+        loginErrorMsg.textContent = 'Please log in to your MetroMate account to upload stems.';
+        loginErrorMsg.classList.remove('hidden');
+      }
+      if (loginModal) {
+        loginModal.classList.remove('hidden');
+        if (loginEmail) loginEmail.focus();
+      }
+      return;
+    }
+
     if (!selectedProjectId || selectedStems.length === 0) {
       alert('Please select a project first.');
       return;
@@ -1451,6 +1512,17 @@ function initStemUploader() {
   // "Continue to Project Selection"
   if (continueToProjectsBtn) {
     continueToProjectsBtn.addEventListener('click', () => {
+      if (!currentUser) {
+        if (loginErrorMsg) {
+          loginErrorMsg.textContent = 'Please sign in to your MetroMate account to select projects and upload stems.';
+          loginErrorMsg.classList.remove('hidden');
+        }
+        if (loginModal) {
+          loginModal.classList.remove('hidden');
+          if (loginEmail) loginEmail.focus();
+        }
+        return;
+      }
       showStep('projects');
     });
   }
@@ -1624,13 +1696,19 @@ function initStemUploader() {
     logoutBtn.addEventListener('click', () => {
       currentUser = null;
       metromateAuthToken = '';
+      selectedProjectId = null;
+      metromateProjects = [];
 
       localStorage.removeItem('metromate_user');
       localStorage.removeItem('metromate_auth_token');
 
       updateUserAuthUI();
 
-      // If on projects step, reload projects
+      if (startUploadToProjectBtn) {
+        startUploadToProjectBtn.setAttribute('disabled', 'true');
+      }
+
+      // If on projects step, reload projects (shows locked screen)
       if (projectSelectionCard && !projectSelectionCard.classList.contains('hidden')) {
         loadProjects();
       }
@@ -1782,6 +1860,231 @@ function initStemUploader() {
         }
       }
     });
+  }
+
+  // ==========================================
+  // STEM WATCHER & DETECTED STEMS LOGIC
+  // ==========================================
+
+  // Update Stem Watcher UI indicators
+  function updateWatcherUI(statusObj) {
+    if (!statusObj) return;
+
+    const { status, folder, isPaused, errorMessage } = statusObj;
+
+    if (watcherFolderPathText) {
+      watcherFolderPathText.textContent = folder || 'No watch folder configured';
+      watcherFolderPathText.title = folder || '';
+    }
+
+    if (settingsWatchFolder) {
+      settingsWatchFolder.value = folder || '';
+    }
+
+    if (watcherStatusBadge && watcherStatusText) {
+      watcherStatusBadge.className = 'watcher-status-badge';
+
+      if (isPaused || status === 'paused') {
+        watcherStatusBadge.classList.add('paused');
+        watcherStatusText.textContent = 'Paused';
+        if (watcherToggleText) watcherToggleText.textContent = '▶ Resume';
+      } else if (status === 'watching') {
+        watcherStatusBadge.classList.add('watching');
+        watcherStatusText.textContent = 'Watching';
+        if (watcherToggleText) watcherToggleText.textContent = '⏸ Pause';
+      } else if (status === 'unavailable' || status === 'error') {
+        watcherStatusBadge.classList.add('unavailable');
+        watcherStatusText.textContent = 'Folder unavailable';
+        if (watcherToggleText) watcherToggleText.textContent = '▶ Resume';
+      } else {
+        watcherStatusBadge.classList.add('watching');
+        watcherStatusText.textContent = status || 'Watching';
+        if (watcherToggleText) watcherToggleText.textContent = '⏸ Pause';
+      }
+    }
+  }
+
+  // Display Detected Stems Banner with animated preview list
+  function showDetectedStemsBanner(batchData) {
+    if (!batchData || !batchData.stems || batchData.stems.length === 0) return;
+
+    latestDetectedStems = batchData.stems;
+    const count = batchData.count || latestDetectedStems.length;
+
+    if (detectedCountBadge) {
+      detectedCountBadge.textContent = `${count} ${count === 1 ? 'stem' : 'stems'} ready`;
+    }
+
+    if (detectedSubtitle) {
+      detectedSubtitle.textContent = `${count} ${count === 1 ? 'stem is' : 'stems are'} ready to review from FL Studio export`;
+    }
+
+    if (detectedPreviewList) {
+      detectedPreviewList.innerHTML = '';
+      latestDetectedStems.slice(0, 8).forEach((stem) => {
+        const pill = document.createElement('span');
+        pill.className = 'detected-stem-pill';
+        pill.innerHTML = `<span class="check-icon">✓</span> <span>${stem.name}</span>`;
+        detectedPreviewList.appendChild(pill);
+      });
+
+      if (latestDetectedStems.length > 8) {
+        const morePill = document.createElement('span');
+        morePill.className = 'detected-stem-pill';
+        morePill.textContent = `+${latestDetectedStems.length - 8} more`;
+        detectedPreviewList.appendChild(morePill);
+      }
+    }
+
+    if (detectedStemsBanner) {
+      detectedStemsBanner.classList.remove('hidden');
+    }
+  }
+
+  // Hide Detected Stems Banner
+  function hideDetectedStemsBanner() {
+    if (detectedStemsBanner) {
+      detectedStemsBanner.classList.add('hidden');
+    }
+  }
+
+  // Review Stems Button Click Handler
+  if (reviewDetectedStemsBtn) {
+    reviewDetectedStemsBtn.addEventListener('click', async () => {
+      let stemsToReview = latestDetectedStems;
+      if (!stemsToReview || stemsToReview.length === 0) {
+        if (window.electronAPI && window.electronAPI.watcher) {
+          stemsToReview = await window.electronAPI.watcher.getPendingStems();
+        }
+      }
+
+      if (stemsToReview && stemsToReview.length > 0) {
+        addFilesToSelection(stemsToReview);
+        hideDetectedStemsBanner();
+        if (window.electronAPI && window.electronAPI.watcher) {
+          window.electronAPI.watcher.dismissPending();
+        }
+      }
+    });
+  }
+
+  // Dismiss Banner Handler
+  if (dismissDetectedStemsBtn) {
+    dismissDetectedStemsBtn.addEventListener('click', () => {
+      hideDetectedStemsBanner();
+      if (window.electronAPI && window.electronAPI.watcher) {
+        window.electronAPI.watcher.dismissPending();
+      }
+    });
+  }
+
+  // Pause / Resume Toggle
+  if (watcherToggleBtn) {
+    watcherToggleBtn.addEventListener('click', async () => {
+      if (!window.electronAPI || !window.electronAPI.watcher) return;
+      const status = await window.electronAPI.watcher.getStatus();
+      if (status.isPaused || status.status === 'paused') {
+        const newStatus = await window.electronAPI.watcher.resume();
+        updateWatcherUI(newStatus);
+      } else {
+        const newStatus = await window.electronAPI.watcher.pause();
+        updateWatcherUI(newStatus);
+      }
+    });
+  }
+
+  // Open Folder in Windows Explorer
+  if (watcherOpenFolderBtn) {
+    watcherOpenFolderBtn.addEventListener('click', () => {
+      if (window.electronAPI && window.electronAPI.watcher) {
+        window.electronAPI.watcher.openFolder();
+      }
+    });
+  }
+
+  if (settingsOpenFolderBtn) {
+    settingsOpenFolderBtn.addEventListener('click', () => {
+      if (window.electronAPI && window.electronAPI.watcher) {
+        window.electronAPI.watcher.openFolder();
+      }
+    });
+  }
+
+  // Change Watch Folder (Browse Dialog)
+  async function triggerChangeWatchFolder() {
+    if (!window.electronAPI || !window.electronAPI.watcher) return;
+    const result = await window.electronAPI.watcher.selectFolderDialog();
+    if (!result.canceled && result.status) {
+      updateWatcherUI(result.status);
+    }
+  }
+
+  if (watcherChangeFolderBtn) {
+    watcherChangeFolderBtn.addEventListener('click', triggerChangeWatchFolder);
+  }
+
+  if (settingsBrowseFolderBtn) {
+    settingsBrowseFolderBtn.addEventListener('click', triggerChangeWatchFolder);
+  }
+
+  // Reset Watch Folder to Default Music Folder
+  if (settingsResetFolderBtn) {
+    settingsResetFolderBtn.addEventListener('click', async () => {
+      if (!window.electronAPI || !window.electronAPI.watcher) return;
+      const result = await window.electronAPI.watcher.resetDefault();
+      if (result.success && result.status) {
+        updateWatcherUI(result.status);
+      }
+    });
+  }
+
+  // Initialize Stem Watcher State and Listeners
+  if (window.electronAPI && window.electronAPI.watcher) {
+    // 1. Subscribe to incoming detected stems events
+    window.electronAPI.watcher.onStemsDetected((batchData) => {
+      showDetectedStemsBanner(batchData);
+    });
+
+    // 2. Subscribe to watcher status changes
+    window.electronAPI.watcher.onStatusChanged((status) => {
+      updateWatcherUI(status);
+    });
+
+    // 3. Fetch initial status & folder path
+    window.electronAPI.watcher.getStatus().then((status) => {
+      updateWatcherUI(status);
+    }).catch((err) => {
+      console.warn('Could not get initial watcher status:', err);
+    });
+
+    // 4. Check for any pending stems on startup
+    window.electronAPI.watcher.getPendingStems().then((pending) => {
+      if (pending && pending.length > 0) {
+        showDetectedStemsBanner({ count: pending.length, stems: pending });
+      }
+    }).catch((err) => {
+      console.warn('Could not fetch pending stems:', err);
+    });
+
+    // 5. When Windows notification is clicked, bring banner into view or directly review
+    if (typeof window.electronAPI.watcher.onFocusDetectedStems === 'function') {
+      window.electronAPI.watcher.onFocusDetectedStems((batchData) => {
+        showDetectedStemsBanner(batchData);
+      });
+    }
+
+    // 6. When tray menu clicks Settings, open settings modal
+    if (typeof window.electronAPI.watcher.onOpenSettings === 'function') {
+      window.electronAPI.watcher.onOpenSettings(() => {
+        if (settingsModal) {
+          if (settingsWebUrl) settingsWebUrl.value = metromateWebUrl;
+          if (settingsApiUrl) settingsApiUrl.value = metromateApiUrl;
+          if (settingsAuthToken) settingsAuthToken.value = metromateAuthToken;
+          if (testConnectionStatus) testConnectionStatus.classList.add('hidden');
+          settingsModal.classList.remove('hidden');
+        }
+      });
+    }
   }
 }
 
